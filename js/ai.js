@@ -1,11 +1,50 @@
 /* DADASHMODE v3 · AI (Gemini / OpenAI-compatible) + offline script parser */
 'use strict';
-function aiReady(){return S.aiProvider==='gemini'?!!S.geminiKey:!!S.openaiKey}
+let serverHasGemini = false;
+async function checkServerConfig(){
+  try {
+    const r = await fetch('/api/config');
+    if(r.ok) {
+      const data = await r.json();
+      serverHasGemini = !!data.hasGeminiKey;
+    }
+  } catch(e) {}
+}
+checkServerConfig();
+
+function aiReady(){return S.aiProvider==='gemini'?(!!S.geminiKey || serverHasGemini):!!S.openaiKey}
 async function aiJSON(system,user){
-  if(S.aiProvider==='gemini'){if(!S.geminiKey)throw new Error('کلید Gemini در تنظیمات وارد نشده');
-    const r=await withRetry(async()=>{const x=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${S.geminiChat}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':S.geminiKey},
-      body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts:[{text:user}]}],generationConfig:{responseMimeType:'application/json',temperature:.7}})});if(!x.ok)throw new Error('Gemini '+x.status+': '+(await x.text()).slice(0,200));return x});
-    const j=await r.json();const txt=(j.candidates[0].content.parts||[]).map(p=>p.text||'').join('');return JSON.parse(txt.replace(/^```json|```$/g,''))}
+  if(S.aiProvider==='gemini'){
+    const r=await withRetry(async()=>{
+      // First try server proxy route
+      const proxyRes = await fetch('/api/ai/json', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({system, user, model: S.geminiChat, apiKey: S.geminiKey})
+      });
+      if(proxyRes.ok){
+        return proxyRes;
+      }
+      // If server route failed and user provided a key directly in UI, try direct client fetch
+      if(S.geminiKey){
+        const x=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${S.geminiChat}:generateContent`,{
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-goog-api-key':S.geminiKey},
+          body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts:[{text:user}]}],generationConfig:{responseMimeType:'application/json',temperature:.7}})
+        });
+        if(!x.ok) throw new Error('Gemini '+x.status+': '+(await x.text()).slice(0,200));
+        return x;
+      }
+      const errJson = await proxyRes.json().catch(()=>null);
+      throw new Error(errJson?.error || ('Gemini '+proxyRes.status+': '+(await proxyRes.text()).slice(0,200)));
+    });
+    const j=await r.json();
+    if(j.text){
+      return JSON.parse(j.text.replace(/^```json|```$/g,''));
+    }
+    const txt=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');
+    return JSON.parse(txt.replace(/^```json|```$/g,''));
+  }
   if(!S.openaiKey)throw new Error('کلید OpenAI در تنظیمات وارد نشده');
   const r=await withRetry(async()=>{const x=await fetch(S.openaiBase.replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.openaiKey},
     body:JSON.stringify({model:S.openaiChat,temperature:.7,response_format:{type:'json_object'},messages:[{role:'system',content:system},{role:'user',content:user}]})});if(!x.ok)throw new Error('OpenAI '+x.status+': '+(await x.text()).slice(0,200));return x});

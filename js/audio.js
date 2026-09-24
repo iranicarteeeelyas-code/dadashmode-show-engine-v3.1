@@ -75,7 +75,20 @@ function b64ToBytes(b64){const bin=atob(b64);const u=new Uint8Array(bin.length);
 function ttsPrompt(ln){const e=EMO[ln.emotion]||EMO.warm;
   return `Read the following Persian (Farsi) line aloud as a charismatic, attractive young Iranian woman hosting a top-tier TV game show. Natural fluent Tehrani Persian, never robotic. Delivery: ${e.ins}${ln.direction?` Director's note (Persian): ${ln.direction}.`:''} Speak ONLY the Persian line, nothing else:\n${ln.text.trim()}`}
 async function withRetry(fn,tries=4){let last;for(let i=0;i<tries;i++){try{return await fn()}catch(e){last=e;if(!/429|500|502|503|504|fetch/i.test(e.message))throw e;await sleep(1500*Math.pow(2,i))}}throw last}
-async function ttsGemini(ln,voiceName){if(!S.geminiKey)throw new Error('کلید Gemini در تنظیمات وارد نشده');
+async function ttsGemini(ln,voiceName){
+  try {
+    const r=await fetch('/api/ai/tts', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text:ttsPrompt(ln),voiceName:voiceName||'Leda',model:S.geminiTts,apiKey:S.geminiKey})
+    });
+    if(r.ok) {
+      return await r.blob();
+    }
+  } catch(e) {
+    console.warn('Server TTS proxy error:', e);
+  }
+  if(!S.geminiKey)throw new Error('کلید Gemini در تنظیمات وارد نشده و روی سرور نیز موجود نیست');
   const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${S.geminiTts}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':S.geminiKey},
     body:JSON.stringify({contents:[{parts:[{text:ttsPrompt(ln)}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voiceName||'Leda'}}}}})});
   if(!r.ok)throw new Error('Gemini '+r.status+': '+(await r.text()).slice(0,180));const j=await r.json();

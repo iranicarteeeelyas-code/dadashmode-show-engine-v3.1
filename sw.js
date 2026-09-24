@@ -8,8 +8,9 @@ self.addEventListener('install',e=>{e.waitUntil((async()=>{const c=await caches.
   self.skipWaiting()})())});
 self.addEventListener('activate',e=>{e.waitUntil((async()=>{for(const k of await caches.keys())if(k!==VERSION&&!k.startsWith('dm3-cdn'))await caches.delete(k);await self.clients.claim()})())});
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET')return;
-  /* never cache AI API calls */
+  /* never cache AI API calls or backend server APIs */
   if(/generativelanguage\.googleapis|api\.openai\.com/.test(u.host))return;
+  if(u.pathname.startsWith('/api/'))return;
   /* CDN assets of the emergency on-device voice engine: cache-first so it works offline after first download */
   if(/jsdelivr|cdnjs|huggingface|unpkg/.test(u.host)){e.respondWith((async()=>{const c=await caches.open('dm3-cdn');const hit=await c.match(e.request);if(hit)return hit;const r=await fetch(e.request);if(r.ok)c.put(e.request,r.clone());return r})());return}
   if(u.origin!==location.origin)return;

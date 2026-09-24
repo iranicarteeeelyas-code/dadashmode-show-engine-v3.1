@@ -1,0 +1,8 @@
+{
+  "name": "داداش‌مود · موتور نمایش ۳",
+  "description": "موتور نمایش زنده، قوانین مسابقه، بانک زمان، بازبینی VAR و استودیو تولید ویدیو برای مسابقات داداش‌مود",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "dadashmode-show-engine",
+  "version": "3.1.0",
+  "description": "داداش‌مود · موتور نمایش ۳ - Live production graphics and game show engine",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "node --check server.js",
+    "lint": "node --check server.js tools/serve.mjs tools/build-voicepack.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
